@@ -1,0 +1,283 @@
+/* --- 1. DESIGN TOKENS --- */
+:root {
+    --lemar-gold: #72592d;
+    --lemar-dark: #1a1c1e;
+    --lemar-gray: #888;
+    --lemar-border: #e0d8cc;
+    --lemar-white: #ffffff;
+    --lemar-bg: #f2ede4;
+    --lemar-shadow: 0 20px 40px rgba(0, 0, 0, 0.06);
+    --font-heading: 'League Spartan', sans-serif;
+    --font-body: 'Quicksand', sans-serif;
+}
+
+/* --- 2. GLOBAL & TYPOGRAPHY --- */
+strong { font-weight: 900; }
+p { font-weight: 400; }
+
+.lemar-project-page {
+    background-color: var(--lemar-bg);
+    color: var(--lemar-dark);
+    font-family: var(--font-body);
+    font-size: 22px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+.lemar-body-text { color: #2b2d2f; }
+
+.lemar-project-page h1, .lemar-project-page h2, .lemar-project-page h3, 
+.lemar-project-page h4, .lemar-price, .lemar-btn, .lemar-tab-trigger, 
+.lemar-spec-item small, .spec-value, .lemar-filter-segment label {
+    font-family: var(--font-heading) !important;
+    font-weight: 700;
+    text-transform: uppercase;
+    margin: 0;
+}
+
+.lemar-project-page h3 { color: var(--lemar-gold); }
+
+/* --- 3. DESKTOP STYLES (901px and up) --- */
+@media (min-width: 901px) {
+    .lemar-mobile-trigger-wrap, .lemar-mobile-header, .lemar-filter-overlay {
+        display: none !important;
+    }
+
+    .lemar-filter-container {
+        padding: 40px 0;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .lemar-filter-console {
+        display: flex;
+        align-items: center;
+        background: var(--lemar-white);
+        padding: 10px 10px 10px 30px;
+        border-radius: 100px;
+        box-shadow: var(--lemar-shadow);
+        border: 1px solid var(--lemar-border);
+    }
+
+    .lemar-filter-scroll-area { display: flex; flex: 1; align-items: center; }
+    .lemar-filter-segment { flex: 1; padding: 5px 25px; }
+    .lemar-filter-segment:not(:nth-last-child(3)) { border-right: 1px solid var(--lemar-border); }
+    .lemar-filter-segment:last-of-type { border-right: none; }
+
+    .lemar-filter-segment label { font-size: 22px; letter-spacing: 2px; color: var(--lemar-gold); margin-bottom: 2px; }
+
+    .lemar-filter-segment select {
+        width: 100%;
+        border: none !important;
+        background: transparent !important;
+        font-family: var(--font-body);
+        font-size: 18px;
+        color: var(--lemar-dark);
+        cursor: pointer;
+        outline: none;
+        appearance: none;
+    }
+
+    .lemar-filter-submit {
+        background: var(--lemar-dark);
+        color: var(--lemar-white);
+        border: none;
+        height: 54px;
+        padding: 0 40px;
+        border-radius: 50px;
+        cursor: pointer;
+        font-size: 16px;
+        letter-spacing: 2px;
+        transition: all 0.3s ease;
+        margin-right: 10px;
+    }
+
+    .lemar-filter-submit:hover { background: var(--lemar-gold); transform: translateY(-2px); }
+    .lemar-filter-submit .mobile-text { display: none; }
+}
+
+/* --- 4. MOBILE STYLES (900px and below) --- */
+@media (max-width: 900px) {
+    .lemar-mobile-trigger-wrap { display: flex; justify-content: center; padding: 20px 0; }
+
+    .lemar-filter-trigger {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: var(--lemar-white);
+        border: 1px solid var(--lemar-border);
+        padding: 14px 28px;
+        border-radius: 50px;
+        font-size: 18px;
+        letter-spacing: 1px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    }
+
+    .lemar-filter-container {
+        position: fixed;
+        top: 0; bottom: 0; right: -100%;
+        width: 85%; max-width: 320px;
+        background: var(--lemar-white);
+        z-index: 100000;
+        transition: right 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        box-shadow: -15px 0 50px rgba(0,0,0,0.15);
+        display: flex !important;
+        flex-direction: column;
+        overflow: hidden !important; 
+    }
+
+    .lemar-filter-console { display: flex !important; flex-direction: column; height: 100%; margin: 0; }
+
+    .lemar-mobile-header {
+        flex: 0 0 auto;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px 25px;
+        border-bottom: 1px solid var(--lemar-border);
+        background: var(--lemar-white);
+    }
+
+    .lemar-mobile-header span { font-size: 14px; letter-spacing: 1px; }
+    .lemar-mobile-header button { background: none; border: none; font-size: 30px; cursor: pointer; color: #ccc; }
+
+    .lemar-filter-scroll-area {
+        flex: 1 1 auto;
+        overflow-y: auto !important;
+        overflow-x: hidden;
+        min-height: 0;
+        padding-bottom: 40px;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    .lemar-filter-segment { padding: 25px; border-bottom: 1px solid #fcfcfc; }
+    .lemar-filter-segment label { font-size: 18px; color: var(--lemar-gold); margin-bottom: 8px; }
+
+    .lemar-filter-segment select {
+        width: 100%;
+        font-size: 18px;
+        font-family: var(--font-body);
+        padding: 18px;
+        border: 1px solid #eee !important;
+        background: var(--lemar-white) !important;
+        border-radius: 4px;
+    }
+
+    .lemar-filter-submit-wrap {
+        flex: 0 0 auto;
+        padding: 20px 25px;
+        border-top: 1px solid var(--lemar-border);
+        background: var(--lemar-white);
+        box-shadow: 0 -10px 20px rgba(0,0,0,0.04);
+    }
+
+    .lemar-filter-submit {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        background: var(--lemar-dark);
+        color: var(--lemar-white);
+        padding: 18px;
+        border: none;
+        font-size: 18px;
+    }
+
+    .lemar-filter-submit .desktop-text { display: none; }
+
+    .lemar-filter-overlay {
+        position: fixed;
+        top: 0; left: 0; bottom: 0; right: 0;
+        background: rgba(0, 0, 0, 0.2);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        z-index: 99999;
+        display: none;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    body.filter-open { overflow: hidden; position: fixed; width: 100%; }
+    body.filter-open .lemar-filter-container { right: 0; }
+    body.filter-open .lemar-filter-overlay { display: block; opacity: 1; }
+}
+
+@media screen and (max-width: 782px) {
+    .admin-bar .lemar-filter-container, .admin-bar .lemar-filter-overlay { margin: 0; }
+}
+
+/* --- 5. PROJECT COMPONENTS --- */
+.lemar-container { max-width: 1200px; margin: 0 auto; padding: 0 30px; }
+
+.lemar-hero {
+    position: relative;
+    height: 75vh;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    overflow: hidden;
+    margin-bottom: 30px;
+}
+
+.lemar-hero img.hero-img { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
+.lemar-hero-content { position: relative; z-index: 10; color: #fff; }
+.lemar-hero-content h1 { font-size: clamp(40px, 6vw, 85px); line-height: 0.95; letter-spacing: 2px; color: #FFFFFF; }
+.lemar-hero-content p { font-size: 18px; letter-spacing: 4px; margin-top: 20px; opacity: 0.9; }
+
+.lemar-specs-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--lemar-border); margin-bottom: 40px; }
+.lemar-spec-item { padding: 30px 15px; border-right: 1px solid var(--lemar-border); text-align: center; }
+.lemar-spec-item:last-child { border-right: none; }
+.lemar-spec-item small { color: var(--lemar-gold); letter-spacing: 2px; font-size: 13px; display: block; margin-bottom: 5px; }
+.lemar-spec-item .spec-value { font-size: 24px; color: var(--lemar-dark); }
+
+.lemar-main-split { display: grid; grid-template-columns: 1fr 400px; gap: 60px; align-items: flex-start; position: relative; }
+.lemar-main-body { width: 100%; }
+.lemar-content-section { width: 100%; margin-bottom: 50px; }
+.lemar-title-wrap { margin-bottom: 15px; }
+.lemar-title-wrap h2 { font-size: 28px; letter-spacing: 3px; }
+.lemar-title-wrap h2 span { color: var(--lemar-gold); }
+
+.lemar-tabs-nav { width: 100%; display: flex; gap: 40px; margin-bottom: 20px; border-bottom: 1px solid var(--lemar-border); }
+.lemar-tab-trigger { border: none; background: none; padding: 15px 0; font-size: 15px; cursor: pointer; color: #888; border-bottom: 3px solid transparent; transition: 0.3s; }
+.lemar-tab-trigger.active { color: var(--lemar-dark); border-bottom-color: var(--lemar-gold); }
+
+.lemar-tab-panel { display: none; width: 100%; height: 550px; background: #000; border: 1px solid var(--lemar-border); overflow: hidden; position: relative; }
+.lemar-tab-panel.active { display: block; }
+.lemar-tab-panel iframe { position: absolute; top: 0; left: 0; width: 100% !important; height: 100% !important; border: none; }
+
+.lemar-gallery { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.lemar-gallery-link { aspect-ratio: 5/3; border: 1px solid var(--lemar-border); overflow: hidden; display: block; }
+.lemar-gallery-link img { width: 100%; height: 100%; object-fit: cover; transition: 0.6s ease; }
+.lemar-gallery-link:hover img { transform: scale(1.06); }
+
+.lemar-map-wrap { width: calc(100% - 2px); height: 450px; border: 1px solid var(--lemar-border); overflow: hidden; }
+.lemar-map-iframe { width: 100% !important; height: 100% !important; filter: grayscale(1) contrast(1.1); border: none; }
+
+.lemar-sidebar { position: sticky; top: 40px; z-index: 10; }
+.lemar-sidebar-card { border: 1px solid var(--lemar-border); padding: 40px; text-align: center; background-color: var(--lemar-bg); }
+.lemar-price { font-size: 42px; margin-bottom: 25px; }
+.lemar-sidebar-details { font-size: 18px; line-height: 2; border-top: 1px solid var(--lemar-border); padding-top: 25px; margin-bottom: 30px; }
+
+.lemar-btn { display: block; width: 100%; padding: 20px; border: 1.5px solid var(--lemar-dark); text-decoration: none; font-size: 14px; margin-bottom: 12px; transition: 0.3s; box-sizing: border-box; text-align: center; }
+.lemar-btn-solid { background: var(--lemar-dark); color: #fff; }
+.lemar-btn-gold { background: var(--lemar-gold); color: #fff; border-color: var(--lemar-gold); }
+
+.lemar-reset-btn { text-align: center; margin-top: 20px; }
+.lemar-reset-btn a { font-size: 10px; text-transform: uppercase; color: var(--lemar-gray); text-decoration: none; letter-spacing: 1px; }
+
+/* --- 6. RESPONSIVE ADJUSTMENTS --- */
+@media (max-width: 1024px) {
+    .lemar-main-split { display: flex; flex-direction: column-reverse; gap: 40px; }
+    .lemar-sidebar { width: 100%; position: static; }
+    .lemar-specs-grid { grid-template-columns: repeat(2, 1fr); }
+    .lemar-map-wrap { height: 200px; }
+    .lemar-tab-panel { height: 220px; }
+}
+
+.lemar-hero-content p a {
+    color: #FFFFFF;
+    text-decoration: none;
+}
