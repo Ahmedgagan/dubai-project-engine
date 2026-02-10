@@ -246,6 +246,54 @@ function dvp_register_taxonomies()
 add_action('init', 'dvp_register_taxonomies');
 
 /**
+ * Amenities Taxonomy Meta (Logo)
+ */
+function dvp_amenities_add_form_fields()
+{
+?>
+  <div class="form-field term-group">
+    <label for="dvp_amenity_logo_id">Amenity Logo</label>
+    <input type="hidden" id="dvp_amenity_logo_id" name="dvp_amenity_logo_id" value="">
+    <button type="button" class="button dvp-amenity-logo-upload">Select Logo</button>
+    <button type="button" class="button dvp-amenity-logo-clear">Clear</button>
+    <div class="dvp-amenity-logo-preview" style="margin-top:10px;"></div>
+  </div>
+<?php
+}
+add_action('dvp_amenities_add_form_fields', 'dvp_amenities_add_form_fields');
+
+function dvp_amenities_edit_form_fields($term)
+{
+  $logo_id = get_term_meta($term->term_id, 'dvp_amenity_logo_id', true);
+  $logo_url = $logo_id ? wp_get_attachment_image_url($logo_id, 'thumbnail') : '';
+?>
+  <tr class="form-field term-group-wrap">
+    <th scope="row"><label for="dvp_amenity_logo_id">Amenity Logo</label></th>
+    <td>
+      <input type="hidden" id="dvp_amenity_logo_id" name="dvp_amenity_logo_id" value="<?php echo esc_attr($logo_id); ?>">
+      <button type="button" class="button dvp-amenity-logo-upload">Select Logo</button>
+      <button type="button" class="button dvp-amenity-logo-clear">Clear</button>
+      <div class="dvp-amenity-logo-preview" style="margin-top:10px;">
+        <?php if ($logo_url): ?>
+          <img src="<?php echo esc_url($logo_url); ?>" alt="" style="max-width:80px;height:auto;">
+        <?php endif; ?>
+      </div>
+    </td>
+  </tr>
+<?php
+}
+add_action('dvp_amenities_edit_form_fields', 'dvp_amenities_edit_form_fields');
+
+function dvp_save_amenity_logo_meta($term_id)
+{
+  if (isset($_POST['dvp_amenity_logo_id'])) {
+    update_term_meta($term_id, 'dvp_amenity_logo_id', absint($_POST['dvp_amenity_logo_id']));
+  }
+}
+add_action('created_dvp_amenities', 'dvp_save_amenity_logo_meta');
+add_action('edited_dvp_amenities', 'dvp_save_amenity_logo_meta');
+
+/**
  * 3. Register Custom Meta Fields (REST API Enabled)
  */
 function dvp_register_project_meta()
@@ -598,6 +646,41 @@ function dvp_admin_scripts($hook)
     ");
 }
 add_action('admin_enqueue_scripts', 'dvp_admin_scripts');
+
+function dvp_amenities_admin_scripts($hook)
+{
+  if (!in_array($hook, ['edit-tags.php', 'term.php'])) return;
+  $screen = get_current_screen();
+  if (!$screen || $screen->taxonomy !== 'dvp_amenities') return;
+
+  wp_enqueue_media();
+  wp_add_inline_script('jquery', "
+    jQuery(document).ready(function($){
+      function setPreview(url){
+        var preview = $('.dvp-amenity-logo-preview');
+        if (!url) { preview.html(''); return; }
+        preview.html('<img src=\"'+url+'\" style=\"max-width:80px;height:auto;\" />');
+      }
+
+      $('.dvp-amenity-logo-upload').on('click', function(e){
+        e.preventDefault();
+        var input = $('#dvp_amenity_logo_id');
+        var frame = wp.media({ title: 'Select Amenity Logo', multiple: false }).on('select', function(){
+          var attachment = frame.state().get('selection').first().toJSON();
+          input.val(attachment.id);
+          setPreview(attachment.sizes && attachment.sizes.thumbnail ? attachment.sizes.thumbnail.url : attachment.url);
+        }).open();
+      });
+
+      $('.dvp-amenity-logo-clear').on('click', function(e){
+        e.preventDefault();
+        $('#dvp_amenity_logo_id').val('');
+        setPreview('');
+      });
+    });
+  ");
+}
+add_action('admin_enqueue_scripts', 'dvp_amenities_admin_scripts');
 
 /**
  * 8. Gallery Block Hijacker
@@ -983,9 +1066,29 @@ function lemar_project_shortcode()
               <div class="lemar-title-wrap">
                 <h2>Lifestyle <span>Amenities</span></h2>
               </div>
-              <div style="display: flex; flex-wrap: wrap; gap: 15px;">
+              <div class="lemar-amenities-grid">
                 <?php foreach ($amenities as $a): ?>
-                  <span style="border:2px solid var(--lemar-border); padding:10px 25px; font-size:16px; text-transform:uppercase; letter-spacing:2px; font-weight: 600; font-family: var(--font-heading);"><?php echo esc_html($a->name); ?></span>
+                  <?php
+                  $logo_id = get_term_meta($a->term_id, 'dvp_amenity_logo_id', true);
+                  $logo_url = $logo_id ? wp_get_attachment_image_url($logo_id, 'thumbnail') : '';
+                  $desc = wp_strip_all_tags($a->description);
+                  if ($desc) {
+                    $desc = wp_trim_words($desc, 10, '');
+                  }
+                  ?>
+                  <div class="lemar-amenity-card">
+                    <div class="lemar-amenity-logo">
+                      <?php if ($logo_url): ?>
+                        <img src="<?php echo esc_url($logo_url); ?>" alt="<?php echo esc_attr($a->name); ?>">
+                      <?php else: ?>
+                        <div class="lemar-amenity-placeholder"><?php echo esc_html(substr($a->name, 0, 1)); ?></div>
+                      <?php endif; ?>
+                    </div>
+                    <div class="lemar-amenity-name"><?php echo esc_html($a->name); ?></div>
+                    <?php if ($desc): ?>
+                      <div class="lemar-amenity-desc"><?php echo esc_html($desc); ?></div>
+                    <?php endif; ?>
+                  </div>
                 <?php endforeach; ?>
               </div>
             </section>
