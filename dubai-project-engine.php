@@ -10,6 +10,186 @@
 if (! defined('ABSPATH')) exit;
 
 /**
+ * Plugin Settings
+ */
+function dvp_get_settings()
+{
+  $defaults = [
+    'lead_email'  => '',
+    'unlock_days' => 7,
+  ];
+  $settings = get_option('dvp_settings', []);
+  if (!is_array($settings)) {
+    $settings = [];
+  }
+  return array_merge($defaults, $settings);
+}
+
+function dvp_register_settings()
+{
+  register_setting('dvp_settings_group', 'dvp_settings', function ($input) {
+    $output = [];
+    $output['lead_email'] = isset($input['lead_email']) ? sanitize_email($input['lead_email']) : '';
+    $output['unlock_days'] = isset($input['unlock_days']) ? max(1, absint($input['unlock_days'])) : 7;
+    return $output;
+  });
+}
+add_action('admin_init', 'dvp_register_settings');
+
+/**
+ * 0. Leads Table (Activation)
+ */
+function dvp_create_leads_table()
+{
+  global $wpdb;
+  $table = $wpdb->prefix . 'dvp_leads';
+  $charset_collate = $wpdb->get_charset_collate();
+
+  $sql = "CREATE TABLE $table (
+    id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+    project_id bigint(20) unsigned NOT NULL,
+    name varchar(191) NOT NULL,
+    email varchar(191) NOT NULL,
+    phone varchar(50) NOT NULL,
+    ip_address varchar(45) DEFAULT '',
+    user_agent text,
+    created_at datetime NOT NULL,
+    PRIMARY KEY  (id),
+    KEY project_id (project_id),
+    KEY created_at (created_at)
+  ) $charset_collate;";
+
+  require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+  dbDelta($sql);
+}
+register_activation_hook(__FILE__, 'dvp_create_leads_table');
+
+/**
+ * Admin Menus
+ */
+function dvp_register_admin_menus()
+{
+  $parent = 'edit.php?post_type=dvp_project';
+
+  add_submenu_page(
+    $parent,
+    'Leads',
+    'Leads',
+    'manage_options',
+    'dvp-leads',
+    'dvp_render_leads_page'
+  );
+
+  add_submenu_page(
+    $parent,
+    'Settings',
+    'Settings',
+    'manage_options',
+    'dvp-settings',
+    'dvp_render_settings_page'
+  );
+}
+add_action('admin_menu', 'dvp_register_admin_menus');
+
+function dvp_render_settings_page()
+{
+  $settings = dvp_get_settings();
+?>
+  <div class="wrap">
+    <h1>Dubai Project Engine Settings</h1>
+    <form method="post" action="options.php">
+      <?php settings_fields('dvp_settings_group'); ?>
+      <table class="form-table">
+        <tr>
+          <th scope="row"><label for="dvp_lead_email">Lead Email</label></th>
+          <td>
+            <input type="email" id="dvp_lead_email" name="dvp_settings[lead_email]" value="<?php echo esc_attr($settings['lead_email']); ?>" class="regular-text" placeholder="Leave empty to use site admin email">
+          </td>
+        </tr>
+        <tr>
+          <th scope="row"><label for="dvp_unlock_days">Unlock Days</label></th>
+          <td>
+            <input type="number" id="dvp_unlock_days" name="dvp_settings[unlock_days]" value="<?php echo esc_attr($settings['unlock_days']); ?>" min="1" max="365" class="small-text">
+            <p class="description">How long downloads stay unlocked after a lead submits the form.</p>
+          </td>
+        </tr>
+      </table>
+      <?php submit_button(); ?>
+    </form>
+  </div>
+<?php
+}
+
+function dvp_render_leads_page()
+{
+  if (!current_user_can('manage_options')) return;
+
+  global $wpdb;
+  $table = $wpdb->prefix . 'dvp_leads';
+
+  $per_page = 20;
+  $paged = isset($_GET['paged']) ? max(1, absint($_GET['paged'])) : 1;
+  $offset = ($paged - 1) * $per_page;
+
+  $total = (int) $wpdb->get_var("SELECT COUNT(*) FROM $table");
+  $rows = $wpdb->get_results($wpdb->prepare("SELECT * FROM $table ORDER BY created_at DESC LIMIT %d OFFSET %d", $per_page, $offset));
+  $total_pages = max(1, (int) ceil($total / $per_page));
+?>
+  <div class="wrap">
+    <h1>Leads</h1>
+    <table class="widefat fixed striped">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Email</th>
+          <th>Phone</th>
+          <th>Project</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (empty($rows)) : ?>
+          <tr>
+            <td colspan="5">No leads yet.</td>
+          </tr>
+        <?php else : ?>
+          <?php foreach ($rows as $row) : ?>
+            <tr>
+              <td><?php echo esc_html($row->name); ?></td>
+              <td><?php echo esc_html($row->email); ?></td>
+              <td><?php echo esc_html($row->phone); ?></td>
+              <td>
+                <?php
+                $title = $row->project_id ? get_the_title($row->project_id) : '';
+                echo esc_html($title ?: '—');
+                ?>
+              </td>
+              <td><?php echo esc_html(date_i18n('Y-m-d H:i', strtotime($row->created_at))); ?></td>
+            </tr>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </tbody>
+    </table>
+
+    <?php if ($total_pages > 1) : ?>
+      <div class="tablenav">
+        <div class="tablenav-pages">
+          <?php
+          $base_url = remove_query_arg('paged');
+          for ($i = 1; $i <= $total_pages; $i++) {
+            $url = esc_url(add_query_arg('paged', $i, $base_url));
+            $class = $i === $paged ? 'class="page-numbers current"' : 'class="page-numbers"';
+            echo '<a ' . $class . ' href="' . $url . '">' . esc_html($i) . '</a> ';
+          }
+          ?>
+        </div>
+      </div>
+    <?php endif; ?>
+  </div>
+<?php
+}
+
+/**
  * 1. Register Custom Post Type: Project
  */
 function dvp_register_project_cpt()
@@ -76,11 +256,16 @@ function dvp_register_project_meta()
     'dvp_payment_plan'       => 'string',
     'dvp_down_payment'       => 'number',
     'dvp_total_units'        => 'number',
+    'dvp_bedrooms'           => 'string',
+    'dvp_size_range'         => 'string',
+    'dvp_service_charge'     => 'string',
     'dvp_ownership'          => 'string',
     'dvp_building_height'    => 'string',
     'dvp_plot_size'          => 'string',
     'dvp_brochure_id'        => 'number',
     'dvp_floorplan_id'       => 'number',
+    'dvp_master_plan_id'     => 'number',
+    'dvp_cluster_plan_id'    => 'number',
     'dvp_gallery_ids'        => 'string',
     'dvp_video_url'          => 'string',
     'dvp_360_tour'           => 'string',
@@ -234,6 +419,18 @@ function dvp_render_project_metabox($post)
       <input type="number" name="dvp_total_units" value="<?php echo esc_attr($get_meta('dvp_total_units')); ?>">
     </div>
     <div class="dvp-field">
+      <label>Number of Bedrooms</label>
+      <input type="text" name="dvp_bedrooms" value="<?php echo esc_attr($get_meta('dvp_bedrooms')); ?>" placeholder="1,2,3 BHK">
+    </div>
+    <div class="dvp-field">
+      <label>Size Range</label>
+      <input type="text" name="dvp_size_range" value="<?php echo esc_attr($get_meta('dvp_size_range')); ?>" placeholder="1,000 - 2,000 sqft">
+    </div>
+    <div class="dvp-field">
+      <label>Service Charge</label>
+      <input type="text" name="dvp_service_charge" value="<?php echo esc_attr($get_meta('dvp_service_charge')); ?>" placeholder="1,000 AED or 5%">
+    </div>
+    <div class="dvp-field">
       <label>Ownership Type</label>
       <input type="text" name="dvp_ownership" value="<?php echo esc_attr($get_meta('dvp_ownership')); ?>" placeholder="Freehold">
     </div>
@@ -282,6 +479,22 @@ function dvp_render_project_metabox($post)
         <span class="dvp-file-status">ID: <?php echo $get_meta('dvp_floorplan_id') ?: 'None'; ?></span>
       </div>
     </div>
+    <div class="dvp-field">
+      <label>Master Plan (PDF/ZIP)</label>
+      <div class="media-controls">
+        <input type="hidden" name="dvp_master_plan_id" class="dvp-file-id" value="<?php echo esc_attr($get_meta('dvp_master_plan_id')); ?>">
+        <button type="button" class="button dvp-upload-btn"><?php _e('Select File', 'dvp'); ?></button>
+        <span class="dvp-file-status">ID: <?php echo $get_meta('dvp_master_plan_id') ?: 'None'; ?></span>
+      </div>
+    </div>
+    <div class="dvp-field">
+      <label>Cluster Plan (PDF/ZIP)</label>
+      <div class="media-controls">
+        <input type="hidden" name="dvp_cluster_plan_id" class="dvp-file-id" value="<?php echo esc_attr($get_meta('dvp_cluster_plan_id')); ?>">
+        <button type="button" class="button dvp-upload-btn"><?php _e('Select File', 'dvp'); ?></button>
+        <span class="dvp-file-status">ID: <?php echo $get_meta('dvp_cluster_plan_id') ?: 'None'; ?></span>
+      </div>
+    </div>
     <div class="dvp-field"><label>Video URL</label><input type="url" name="dvp_video_url" value="<?php echo esc_url($get_meta('dvp_video_url')); ?>"></div>
     <div class="dvp-field"><label>360 Virtual Tour URL</label><input type="url" name="dvp_360_tour" value="<?php echo esc_url($get_meta('dvp_360_tour')); ?>"></div>
 
@@ -320,11 +533,16 @@ function dvp_save_project_data($post_id)
     'dvp_payment_plan'       => 'sanitize_text_field',
     'dvp_down_payment'       => 'absint',
     'dvp_total_units'        => 'absint',
+    'dvp_bedrooms'           => 'sanitize_text_field',
+    'dvp_size_range'         => 'sanitize_text_field',
+    'dvp_service_charge'     => 'sanitize_text_field',
     'dvp_ownership'          => 'sanitize_text_field',
     'dvp_building_height'    => 'sanitize_text_field',
     'dvp_plot_size'          => 'sanitize_text_field',
     'dvp_brochure_id'        => 'absint',
     'dvp_floorplan_id'       => 'absint',
+    'dvp_master_plan_id'     => 'absint',
+    'dvp_cluster_plan_id'    => 'absint',
     'dvp_gallery_ids'        => 'sanitize_text_field',
     'dvp_video_url'          => 'esc_url_raw',
     'dvp_360_tour'           => 'esc_url_raw',
@@ -484,6 +702,94 @@ function lemar_register_assets()
 }
 add_action('wp_enqueue_scripts', 'lemar_register_assets');
 
+/**
+ * Frontend Lead Capture Assets
+ */
+function dvp_enqueue_lead_assets()
+{
+  if (!is_singular('dvp_project')) return;
+
+  wp_enqueue_style(
+    'dvp-lead-modal',
+    plugins_url('assets/css/lead-modal.css', __FILE__),
+    array(),
+    '1.0.0'
+  );
+
+  wp_enqueue_script(
+    'dvp-lead-modal',
+    plugins_url('assets/js/lead-modal.js', __FILE__),
+    array(),
+    '1.0.0',
+    true
+  );
+
+  $settings = dvp_get_settings();
+  wp_localize_script('dvp-lead-modal', 'dvpLead', [
+    'ajaxUrl'    => admin_url('admin-ajax.php'),
+    'nonce'      => wp_create_nonce('dvp_lead_nonce'),
+    'unlockDays' => (int) $settings['unlock_days'],
+    'cookieName' => 'dvp_docs_unlocked',
+  ]);
+}
+add_action('wp_enqueue_scripts', 'dvp_enqueue_lead_assets');
+
+/**
+ * Lead Capture AJAX
+ */
+function dvp_submit_lead()
+{
+  if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'dvp_lead_nonce')) {
+    wp_send_json_error(['message' => 'Invalid request.']);
+  }
+
+  $name  = isset($_POST['name']) ? sanitize_text_field($_POST['name']) : '';
+  $email = isset($_POST['email']) ? sanitize_email($_POST['email']) : '';
+  $phone = isset($_POST['phone']) ? sanitize_text_field($_POST['phone']) : '';
+  $project_id = isset($_POST['project_id']) ? absint($_POST['project_id']) : 0;
+
+  if (!$name || !$email || !$phone) {
+    wp_send_json_error(['message' => 'All fields are required.']);
+  }
+  if (!is_email($email)) {
+    wp_send_json_error(['message' => 'Please enter a valid email address.']);
+  }
+  if (!$project_id || get_post_type($project_id) !== 'dvp_project') {
+    wp_send_json_error(['message' => 'Invalid project.']);
+  }
+
+  global $wpdb;
+  $table = $wpdb->prefix . 'dvp_leads';
+
+  $inserted = $wpdb->insert($table, [
+    'project_id' => $project_id,
+    'name'       => $name,
+    'email'      => $email,
+    'phone'      => $phone,
+    'ip_address' => isset($_SERVER['REMOTE_ADDR']) ? sanitize_text_field($_SERVER['REMOTE_ADDR']) : '',
+    'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_textarea_field($_SERVER['HTTP_USER_AGENT']) : '',
+    'created_at' => current_time('mysql'),
+  ]);
+
+  if (!$inserted) {
+    wp_send_json_error(['message' => 'Unable to save lead. Please try again.']);
+  }
+
+  $settings = dvp_get_settings();
+  $to = $settings['lead_email'] ? $settings['lead_email'] : get_option('admin_email');
+  $subject = 'New Project Lead — ' . get_the_title($project_id);
+  $body = "Name: {$name}\nEmail: {$email}\nPhone: {$phone}\nProject: " . get_permalink($project_id);
+  wp_mail($to, $subject, $body);
+
+  $days = (int) $settings['unlock_days'];
+  $expire = time() + max(1, $days) * DAY_IN_SECONDS;
+  setcookie('dvp_docs_unlocked', '1', $expire, COOKIEPATH, COOKIE_DOMAIN, is_ssl(), false);
+
+  wp_send_json_success(['message' => 'Thank you! Your download will start now.']);
+}
+add_action('wp_ajax_nopriv_dvp_submit_lead', 'dvp_submit_lead');
+add_action('wp_ajax_dvp_submit_lead', 'dvp_submit_lead');
+
 function dvp_register_filter_shortcode()
 {
   add_shortcode('lemar_filter', function () {
@@ -528,7 +834,6 @@ function dvp_register_filter_shortcode()
         <div class="lemar-filter-scroll-area">
           <?php foreach ($filter_config as $item) : ?>
             <div class="lemar-filter-segment">
-              <label><?php echo esc_html($item['label']); ?></label>
               <?php wp_dropdown_categories([
                 'show_option_all' => 'All ' . $item['label'] . 's',
                 'taxonomy'        => $item['taxonomy'],
@@ -579,6 +884,9 @@ function lemar_project_shortcode()
   $payment_plan = $get_meta('dvp_payment_plan');
   $down_payment = $get_meta('dvp_down_payment');
   $total_units = $get_meta('dvp_total_units');
+  $bedrooms = $get_meta('dvp_bedrooms');
+  $size_range = $get_meta('dvp_size_range');
+  $service_charge = $get_meta('dvp_service_charge');
   $ownership = $get_meta('dvp_ownership');
   $height = $get_meta('dvp_building_height');
   $plot_size = $get_meta('dvp_plot_size');
@@ -590,6 +898,8 @@ function lemar_project_shortcode()
   $gallery_ids = $get_meta('dvp_gallery_ids');
   $brochure_id = $get_meta('dvp_brochure_id');
   $floorplan_id = $get_meta('dvp_floorplan_id');
+  $master_plan_id = $get_meta('dvp_master_plan_id');
+  $cluster_plan_id = $get_meta('dvp_cluster_plan_id');
 
   $developers = get_the_term_list($post_id, 'dvp_developer', '', ', ', '');
   $districts  = get_the_term_list($post_id, 'dvp_district', '', ', ', '');
@@ -697,6 +1007,30 @@ function lemar_project_shortcode()
               <?php endif; ?>
             </section>
           <?php endif; ?>
+
+          <?php if ($brochure_id || $floorplan_id || $master_plan_id || $cluster_plan_id): ?>
+            <section class="lemar-content-section">
+              <div class="lemar-title-wrap">
+                <h2>Project <span>Documents</span></h2>
+              </div>
+              <div class="lemar-downloads-wrap">
+                <div class="lemar-sidebar-downloads">
+                  <?php if ($brochure_id): ?>
+                    <a href="<?php echo esc_url(wp_get_attachment_url($brochure_id)); ?>" class="lemar-download-btn dvp-doc-btn" data-doc-label="Brochure" target="_blank" rel="noopener">Download Brochure</a>
+                  <?php endif; ?>
+                  <?php if ($floorplan_id): ?>
+                    <a href="<?php echo esc_url(wp_get_attachment_url($floorplan_id)); ?>" class="lemar-download-btn dvp-doc-btn" data-doc-label="Floor Plans" target="_blank" rel="noopener">Download Floor Plans</a>
+                  <?php endif; ?>
+                  <?php if ($master_plan_id): ?>
+                    <a href="<?php echo esc_url(wp_get_attachment_url($master_plan_id)); ?>" class="lemar-download-btn dvp-doc-btn" data-doc-label="Master Plan" target="_blank" rel="noopener">Download Master Plan</a>
+                  <?php endif; ?>
+                  <?php if ($cluster_plan_id): ?>
+                    <a href="<?php echo esc_url(wp_get_attachment_url($cluster_plan_id)); ?>" class="lemar-download-btn dvp-doc-btn" data-doc-label="Cluster Plan" target="_blank" rel="noopener">Download Cluster Plan</a>
+                  <?php endif; ?>
+                </div>
+              </div>
+            </section>
+          <?php endif; ?>
         </div>
 
         <aside class="lemar-sidebar">
@@ -706,18 +1040,41 @@ function lemar_project_shortcode()
             <div class="lemar-sidebar-details">
               <?php if ($payment_plan): ?><p style="margin:0;"><strong>Plan:</strong> <?php echo esc_html($payment_plan); ?></p><?php endif; ?>
               <?php if ($total_units): ?><p style="margin:0;"><strong>Units:</strong> <?php echo esc_html($total_units); ?></p><?php endif; ?>
+              <?php if ($bedrooms): ?><p style="margin:0;"><strong>Bedrooms:</strong> <?php echo esc_html($bedrooms); ?></p><?php endif; ?>
+              <?php if ($size_range): ?><p style="margin:0;"><strong>Size:</strong> <?php echo esc_html($size_range); ?></p><?php endif; ?>
+              <?php if ($service_charge): ?><p style="margin:0;"><strong>Service Charge:</strong> <?php echo esc_html($service_charge); ?></p><?php endif; ?>
               <?php if ($plot_size): ?><p style="margin:0;"><strong>Plot:</strong> <?php echo number_format((float)$plot_size); ?> sqft.</p><?php endif; ?>
             </div>
-            <?php if ($brochure_id): ?>
-              <a href="<?php echo esc_url(wp_get_attachment_url($brochure_id)); ?>" class="lemar-btn lemar-btn-solid" target="_blank">Download Brochure</a>
-            <?php endif; ?>
-            <?php if ($floorplan_id): ?>
-              <a href="<?php echo esc_url(wp_get_attachment_url($floorplan_id)); ?>" class="lemar-btn" target="_blank">Floor Plans</a>
-            <?php endif; ?>
             <a href="https://wa.me/YOUR_NUMBER" class="lemar-btn lemar-btn-gold">Consult with Expert</a>
           </div>
         </aside>
       </div>
+    </div>
+  </div>
+
+  <div class="dvp-lead-modal" id="dvp-lead-modal" aria-hidden="true">
+    <div class="dvp-lead-backdrop" data-dvp-close></div>
+    <div class="dvp-lead-dialog" role="dialog" aria-modal="true" aria-labelledby="dvp-lead-title">
+      <button type="button" class="dvp-lead-close" aria-label="Close" data-dvp-close>&times;</button>
+      <h3 id="dvp-lead-title">Get Project Documents</h3>
+      <p class="dvp-lead-subtitle">Please share your details to access this document.</p>
+      <form id="dvp-lead-form">
+        <input type="hidden" name="project_id" value="<?php echo esc_attr($post_id); ?>">
+        <label>
+          <span>Name</span>
+          <input type="text" name="name" placeholder="Your full name" required>
+        </label>
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" placeholder="you@email.com" required>
+        </label>
+        <label>
+          <span>Phone</span>
+          <input type="text" name="phone" placeholder="+971 1234567890" required>
+        </label>
+        <button type="submit" class="dvp-lead-submit">Unlock & Download</button>
+        <div class="dvp-lead-message" role="status" aria-live="polite"></div>
+      </form>
     </div>
   </div>
 
